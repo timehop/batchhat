@@ -1,0 +1,4 @@
+batchhat
+========
+
+StatHat stat batcher
