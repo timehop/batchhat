@@ -37,7 +37,7 @@ type BulkStat struct {
 type Batcher struct {
 	Stats         chan Stat
 	stop          chan interface{}
-	ezKey         string
+	EZKey         string
 	flushInterval time.Duration
 }
 
@@ -49,7 +49,7 @@ func NewBatcher(ezKey string, d time.Duration) (Batcher, error) {
 	c := make(chan Stat, 10000)
 	st := make(chan interface{})
 
-	return Batcher{ezKey: ezKey, flushInterval: d, stop: st, Stats: c}, nil
+	return Batcher{EZKey: ezKey, flushInterval: d, stop: st, Stats: c}, nil
 }
 
 func (b Batcher) PostEZCount(statName string, count int) error {
@@ -97,6 +97,7 @@ func (b Batcher) Start() {
 	for {
 		select {
 		case s := <-b.Stats:
+			// Only do any work if EZKey is set
 			ss = append(ss, &s)
 		case <-t:
 			go b.flush(ss)
@@ -112,8 +113,13 @@ func (b Batcher) flush(stats []*Stat) {
 		return
 	}
 
+	if b.EZKey == "" {
+		log.Warn(logID, "Skipping flush. ez key not set.", "stats", len(stats))
+		return
+	}
+
 	for chunk := range chunks(stats) {
-		j, err := json.Marshal(BulkStat{EzKey: b.ezKey, Data: chunk})
+		j, err := json.Marshal(BulkStat{EzKey: b.EZKey, Data: chunk})
 		if err != nil {
 			log.Warn(logID, "couldn't marshal bulk data", "error", err.Error())
 			return
