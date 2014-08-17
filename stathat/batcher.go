@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
+
+	"github.com/timehop/golog/log"
+)
+
+const (
+	logID = "Stathat Batcher"
 )
 
 var (
@@ -46,7 +50,7 @@ func NewBatcher(ezKey string, d time.Duration) (Batcher, error) {
 		return Batcher{}, ErrInvalidFlushInterval
 	}
 
-	c := make(chan Stat, 1000)
+	c := make(chan Stat, 10000)
 	st := make(chan interface{})
 
 	return Batcher{ezKey: ezKey, flushInterval: d, stop: st, Stats: c}, nil
@@ -86,13 +90,8 @@ func (b Batcher) Stop() error {
 }
 
 func (b Batcher) record(s Stat) error {
-	select {
-	case b.Stats <- s:
-		// Means we could queue it fine
-		return nil
-	default:
-		return ErrCouldNotQueueStat
-	}
+	b.Stats <- s
+	return nil
 }
 
 func (b Batcher) Start() {
@@ -102,18 +101,14 @@ func (b Batcher) Start() {
 	for {
 		select {
 		case s := <-b.Stats:
-			fmt.Println("!!!!!!!!!", s)
 			ss = append(ss, &s)
 		case <-t:
-			fmt.Println("flushing", ss)
 			go b.flush(ss)
 			ss = []*Stat{}
 		case <-b.stop:
 			break
 		}
 	}
-
-	fmt.Println("stopped")
 }
 
 func (b Batcher) flush(stats []*Stat) {
@@ -127,20 +122,18 @@ func (b Batcher) flush(stats []*Stat) {
 		end := start + 1000
 
 		if end > len(stats)-1 {
-			end = len(stats) - 1
+			end = len(stats)
 		}
 
 		j, err := json.Marshal(BulkStat{EzKey: b.ezKey, Data: stats[start:end]})
 		if err != nil {
-			fmt.Println("Couldn't marshal bulk data", err.Error())
+			log.Warn(logID, "couldn't marshal bulk data", "error", err.Error())
 			return
 		}
 
-		fmt.Println("json ->", string(j))
-
 		req, err := http.NewRequest("POST", APIURL, bytes.NewReader(j))
 		if err != nil {
-			fmt.Println("Couldn't make request", err.Error())
+			log.Warn(logID, "couldn't make request", "error", err.Error())
 			return
 		}
 
@@ -150,14 +143,14 @@ func (b Batcher) flush(stats []*Stat) {
 		for i := 0; i < retries; i++ {
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
-				fmt.Println("error posting data", err.Error())
+				log.Warn(logID, "error posting data to stathat", "error", err.Error())
 				continue
 			}
 
 			b, _ := ioutil.ReadAll(resp.Body)
 			defer resp.Body.Close()
 
-			log.Println("Flushed", resp.Status, string(b))
+			log.Debug(logID, "Flushed", "status", resp.Status, "resp", string(b))
 			break
 		}
 	}
