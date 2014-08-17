@@ -129,7 +129,11 @@ var _ = Describe("Batcher", func() {
 
 	Describe("#PostEZCountTime", func() {
 		Describe("single stat", func() {
-			now := time.Now().Add(-24 * time.Hour).Unix()
+			var now int64
+
+			BeforeEach(func() {
+				now = time.Now().Add(-24 * time.Hour).Unix()
+			})
 
 			action := func(b stathat.Batcher) {
 				b.PostEZCountTime("BMo", 2353, now)
@@ -205,7 +209,11 @@ var _ = Describe("Batcher", func() {
 
 	Describe("#PostEZValueTime", func() {
 		Describe("single stat", func() {
-			now := time.Now().Add(-24 * time.Hour).Unix()
+			var now int64
+
+			BeforeEach(func() {
+				now = time.Now().Add(-24 * time.Hour).Unix()
+			})
 
 			action := func(b stathat.Batcher) {
 				b.PostEZValueTime("BMo", 2353, now)

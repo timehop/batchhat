@@ -22,10 +22,6 @@ var (
 	ErrInvalidFlushInterval = errors.New("flush interval invalid")
 )
 
-type Flusher interface {
-	Flush(ezkey string, stats []Stat)
-}
-
 type Stat struct {
 	Stat  string  `json:"stat"`
 	Count float64 `json:"count,omitempty"`
@@ -116,16 +112,8 @@ func (b Batcher) flush(stats []*Stat) {
 		return
 	}
 
-	chunks := len(stats) / 1000
-	for i := 0; i <= chunks; i++ {
-		start := i * 1000
-		end := start + 1000
-
-		if end > len(stats)-1 {
-			end = len(stats)
-		}
-
-		j, err := json.Marshal(BulkStat{EzKey: b.ezKey, Data: stats[start:end]})
+	for chunk := range chunks(stats) {
+		j, err := json.Marshal(BulkStat{EzKey: b.ezKey, Data: chunk})
 		if err != nil {
 			log.Warn(logID, "couldn't marshal bulk data", "error", err.Error())
 			return
@@ -139,19 +127,42 @@ func (b Batcher) flush(stats []*Stat) {
 
 		req.Header.Add("Content-Type", "application/json")
 
-		retries := 2
-		for i := 0; i < retries; i++ {
-			resp, err := http.DefaultClient.Do(req)
-			if err != nil {
-				log.Warn(logID, "error posting data to stathat", "error", err.Error())
-				continue
+		send(req, 2)
+	}
+}
+
+func chunks(stats []*Stat) chan []*Stat {
+	c := make(chan []*Stat)
+	go func() {
+		chunks := len(stats) / 1000
+		for i := 0; i <= chunks; i++ {
+
+			start := i * 1000
+			end := start + 1000
+
+			if end > len(stats)-1 {
+				end = len(stats)
 			}
 
-			b, _ := ioutil.ReadAll(resp.Body)
-			defer resp.Body.Close()
-
-			log.Debug(logID, "Flushed", "status", resp.Status, "resp", string(b))
-			break
+			c <- stats[start:end]
 		}
+	}()
+
+	return c
+}
+
+func send(req *http.Request, retries int) {
+	for i := 0; i < retries; i++ {
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Warn(logID, "error posting data to stathat", "error", err.Error())
+			continue
+		}
+
+		b, _ := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
+
+		log.Debug(logID, "Flushed", "status", resp.Status, "resp", string(b))
+		break
 	}
 }
