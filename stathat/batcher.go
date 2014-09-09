@@ -152,6 +152,8 @@ func chunks(stats []*Stat) chan []*Stat {
 
 			c <- stats[start:end]
 		}
+
+		close(c)
 	}()
 
 	return c
