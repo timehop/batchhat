@@ -23,10 +23,10 @@ var (
 )
 
 type Stat struct {
-	Stat  string  `json:"stat"`
-	Count float64 `json:"count,omitempty"`
-	Value float64 `json:"value,omitempty"`
-	Time  int64   `json:"t"`
+	Stat  string   `json:"stat"`
+	Count *float64 `json:"count,omitempty"`
+	Value *float64 `json:"value,omitempty"`
+	Time  int64    `json:"t"`
 }
 
 type BulkStat struct {
@@ -57,9 +57,10 @@ func (b Batcher) PostEZCount(statName string, count int) error {
 }
 
 func (b Batcher) PostEZCountTime(statName string, count int, timestamp int64) error {
+	c := float64(count)
 	s := Stat{
 		Stat:  statName,
-		Count: float64(count),
+		Count: &c,
 		Time:  timestamp,
 	}
 
@@ -73,7 +74,7 @@ func (b Batcher) PostEZValue(statName string, value float64) error {
 func (b Batcher) PostEZValueTime(statName string, value float64, timestamp int64) error {
 	s := Stat{
 		Stat:  statName,
-		Value: value,
+		Value: &value,
 		Time:  timestamp,
 	}
 
