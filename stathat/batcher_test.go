@@ -86,8 +86,9 @@ var _ = Describe("Batcher", func() {
 				stat := stats[0]
 
 				Expect(stat.Stat).To(Equal("BMo"))
-				Expect(stat.Count).To(Equal(float64(2353)))
-				Expect(stat.Value).To(Equal(float64(0)))
+				Expect(stat.Count).ToNot(BeNil())
+				Expect(*stat.Count).To(BeNumerically("==", 2353))
+				Expect(stat.Value).To(BeNil())
 				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
 			}
 
@@ -106,20 +107,23 @@ var _ = Describe("Batcher", func() {
 
 				stat := stats[0]
 				Expect(stat.Stat).To(Equal("BMo"))
-				Expect(stat.Count).To(Equal(float64(2353)))
-				Expect(stat.Value).To(Equal(float64(0)))
+				Expect(stat.Count).ToNot(BeNil())
+				Expect(*stat.Count).To(BeNumerically("==", 2353))
+				Expect(stat.Value).To(BeNil())
 				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
 
 				stat = stats[1]
 				Expect(stat.Stat).To(Equal("Bacon"))
-				Expect(stat.Count).To(Equal(float64(1)))
-				Expect(stat.Value).To(Equal(float64(0)))
+				Expect(stat.Count).ToNot(BeNil())
+				Expect(*stat.Count).To(BeNumerically("==", 1))
+				Expect(stat.Value).To(BeNil())
 				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
 
 				stat = stats[2]
 				Expect(stat.Stat).To(Equal("pancakes"))
-				Expect(stat.Count).To(Equal(float64(200)))
-				Expect(stat.Value).To(Equal(float64(0)))
+				Expect(stat.Count).ToNot(BeNil())
+				Expect(*stat.Count).To(BeNumerically("==", 200))
+				Expect(stat.Value).To(BeNil())
 				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
 			}
 
@@ -145,8 +149,9 @@ var _ = Describe("Batcher", func() {
 				stat := stats[0]
 
 				Expect(stat.Stat).To(Equal("BMo"))
-				Expect(stat.Count).To(Equal(float64(2353)))
-				Expect(stat.Value).To(Equal(float64(0)))
+				Expect(stat.Count).ToNot(BeNil())
+				Expect(*stat.Count).To(BeNumerically("==", 2353))
+				Expect(stat.Value).To(BeNil())
 				Expect(stat.Time).To(BeNumerically("==", now))
 			}
 
@@ -166,8 +171,9 @@ var _ = Describe("Batcher", func() {
 				stat := stats[0]
 
 				Expect(stat.Stat).To(Equal("BMo"))
-				Expect(stat.Value).To(Equal(float64(2353)))
-				Expect(stat.Count).To(Equal(float64(0)))
+				Expect(stat.Value).ToNot(BeNil())
+				Expect(*stat.Value).To(BeNumerically("==", 2353))
+				Expect(stat.Count).To(BeNil())
 				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
 			}
 
@@ -186,20 +192,23 @@ var _ = Describe("Batcher", func() {
 
 				stat := stats[0]
 				Expect(stat.Stat).To(Equal("BMo"))
-				Expect(stat.Value).To(Equal(float64(2353)))
-				Expect(stat.Count).To(Equal(float64(0)))
+				Expect(stat.Value).ToNot(BeNil())
+				Expect(*stat.Value).To(BeNumerically("==", 2353))
+				Expect(stat.Count).To(BeNil())
 				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
 
 				stat = stats[1]
 				Expect(stat.Stat).To(Equal("Bacon"))
-				Expect(stat.Value).To(Equal(float64(1)))
-				Expect(stat.Count).To(Equal(float64(0)))
+				Expect(stat.Value).ToNot(BeNil())
+				Expect(*stat.Value).To(BeNumerically("==", 1))
+				Expect(stat.Count).To(BeNil())
 				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
 
 				stat = stats[2]
 				Expect(stat.Stat).To(Equal("pancakes"))
-				Expect(stat.Value).To(Equal(float64(200)))
-				Expect(stat.Count).To(Equal(float64(0)))
+				Expect(stat.Value).ToNot(BeNil())
+				Expect(*stat.Value).To(BeNumerically("==", 200))
+				Expect(stat.Count).To(BeNil())
 				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
 			}
 
@@ -225,8 +234,9 @@ var _ = Describe("Batcher", func() {
 				stat := stats[0]
 
 				Expect(stat.Stat).To(Equal("BMo"))
-				Expect(stat.Value).To(Equal(float64(2353)))
-				Expect(stat.Count).To(Equal(float64(0)))
+				Expect(stat.Value).ToNot(BeNil())
+				Expect(*stat.Value).To(BeNumerically("==", 2353))
+				Expect(stat.Count).To(BeNil())
 				Expect(stat.Time).To(BeNumerically("==", now))
 			}
 
