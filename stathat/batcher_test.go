@@ -50,8 +50,6 @@ var _ = Describe("Batcher", func() {
 
 		It("should send the stat", func(done Done) {
 			ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				defer GinkgoRecover()
-
 				bts, err := ioutil.ReadAll(r.Body)
 				defer r.Body.Close()
 
@@ -312,8 +310,6 @@ var _ = Describe("Batcher", func() {
 			iter := 0
 
 			ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				defer GinkgoRecover()
-
 				bts, err := ioutil.ReadAll(r.Body)
 				defer r.Body.Close()
 
