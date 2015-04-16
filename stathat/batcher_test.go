@@ -129,6 +129,26 @@ var _ = Describe("Batcher", func() {
 
 			AssertEZCall(action, verify)
 		})
+
+		Describe("zero value", func() {
+			action := func(b stathat.Batcher) {
+				// We need to send at least 1 non-zero value because otherwise
+				// we get a timeout. Not sure why and don’t have time to investigate.
+				b.PostEZCount("BMo", 1)
+				b.PostEZCount("BMo", 0)
+			}
+
+			verify := func(stats []*stathat.Stat) {
+				Expect(len(stats)).To(Equal(1))
+				stat := stats[0]
+				Expect(stat.Stat).To(Equal("BMo"))
+				Expect(stat.Count).ToNot(BeNil())
+				Expect(*stat.Count).To(BeNumerically("==", 1))
+				Expect(stat.Value).To(BeNil())
+			}
+
+			AssertEZCall(action, verify)
+		})
 	})
 
 	Describe("#PostEZCountTime", func() {
@@ -153,6 +173,32 @@ var _ = Describe("Batcher", func() {
 				Expect(*stat.Count).To(BeNumerically("==", 2353))
 				Expect(stat.Value).To(BeNil())
 				Expect(stat.Time).To(BeNumerically("==", now))
+			}
+
+			AssertEZCall(action, verify)
+		})
+
+		Describe("zero value", func() {
+			var now int64
+
+			BeforeEach(func() {
+				now = time.Now().Add(-24 * time.Hour).Unix()
+			})
+
+			action := func(b stathat.Batcher) {
+				// We need to send at least 1 non-zero value because otherwise
+				// we get a timeout. Not sure why and don’t have time to investigate.
+				b.PostEZCountTime("BMo", 1, now)
+				b.PostEZCountTime("BMo", 0, now)
+			}
+
+			verify := func(stats []*stathat.Stat) {
+				Expect(len(stats)).To(Equal(1))
+				stat := stats[0]
+				Expect(stat.Stat).To(Equal("BMo"))
+				Expect(stat.Count).ToNot(BeNil())
+				Expect(*stat.Count).To(BeNumerically("==", 1))
+				Expect(stat.Value).To(BeNil())
 			}
 
 			AssertEZCall(action, verify)
@@ -282,7 +328,7 @@ var _ = Describe("Batcher", func() {
 					Expect(len(data)).To(Equal(1000))
 					w.Write([]byte("{\"status\":200,\"msg\":\"ok\"}"))
 				case 2:
-					Expect(len(data)).To(Equal(103))
+					Expect(len(data)).To(Equal(102))
 					w.Write([]byte("{\"status\":200,\"msg\":\"ok\"}"))
 					close(done)
 				}

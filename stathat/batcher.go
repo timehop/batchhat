@@ -52,11 +52,37 @@ func NewBatcher(ezKey string, d time.Duration) (Batcher, error) {
 	return Batcher{EZKey: ezKey, flushInterval: d, stop: st, Stats: c}, nil
 }
 
+// PostEZCount enqueues a given integer value to be added to a StatHat counter stat. 0 values will
+// be dropped.
 func (b Batcher) PostEZCount(statName string, count int) error {
+	// If a caller is sending a 0, they probably intend for it to be a no-op — to essentially
+	// increment the key by 0, i.e. by nothing. But in fact if we send a 0 to StatHat using their
+	// `PostEZCount` method, they actually increment the key by 1, for some crazy reason. This is
+	// bad, it violates the principle of least surprise. So we’ll just throw the value away and
+	// do nothing as I’d think the caller would expect. This would also be good even if StatHat
+	// did the intuitive thing, because this saves unnecessary resources and time in sending a
+	// noop request.
+	if count == 0 {
+		return nil
+	}
+
 	return b.PostEZCountTime(statName, count, time.Now().Unix())
 }
 
+// PostEZCount enqueues a given integer value to be added to a StatHat counter stat with a specific
+// timestamp. 0 values will be dropped.
 func (b Batcher) PostEZCountTime(statName string, count int, timestamp int64) error {
+	// If a caller is sending a 0, they probably intend for it to be a no-op — to essentially
+	// increment the key by 0, i.e. by nothing. But in fact if we send a 0 to StatHat using their
+	// `PostEZCount` method, they actually increment the key by 1, for some crazy reason. This is
+	// bad, it violates the principle of least surprise. So we’ll just throw the value away and
+	// do nothing as I’d think the caller would expect. This would also be good even if StatHat
+	// did the intuitive thing, because this saves unnecessary resources and time in sending a
+	// noop request.
+	if count == 0 {
+		return nil
+	}
+
 	c := float64(count)
 	s := Stat{
 		Stat:  statName,
