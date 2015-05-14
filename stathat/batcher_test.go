@@ -3,6 +3,7 @@ package stathat_test
 import (
 	"encoding/json"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -260,6 +261,15 @@ var _ = Describe("Batcher", func() {
 
 			AssertEZCall(action, verify)
 		})
+
+		Context("when posting a stat with invalid data (NaN)", func() {
+			It("should immediately return an error", func() {
+				b, err := stathat.NewBatcher("ezkey", 1*time.Second)
+				Expect(err).To(BeNil())
+				err = b.PostEZValue("test", math.NaN())
+				Expect(err).To(Equal(stathat.ErrNaN))
+			})
+		})
 	})
 
 	Describe("#PostEZValueTime", func() {
@@ -287,6 +297,15 @@ var _ = Describe("Batcher", func() {
 			}
 
 			AssertEZCall(action, verify)
+		})
+
+		Context("when posting a stat with invalid data (NaN)", func() {
+			It("should immediately return an error", func() {
+				b, err := stathat.NewBatcher("ezkey", 1*time.Second)
+				Expect(err).To(BeNil())
+				err = b.PostEZValueTime("test", math.NaN(), time.Now().Unix())
+				Expect(err).To(Equal(stathat.ErrNaN))
+			})
 		})
 	})
 
