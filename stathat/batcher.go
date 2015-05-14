@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"time"
 
@@ -20,6 +21,7 @@ var (
 
 	ErrCouldNotQueueStat    = errors.New("could not queue up stat")
 	ErrInvalidFlushInterval = errors.New("flush interval invalid")
+	ErrNaN                  = errors.New("value is not a number (NaN)")
 )
 
 type Stat struct {
@@ -83,6 +85,7 @@ func (b Batcher) PostEZCountTime(statName string, count int, timestamp int64) er
 		return nil
 	}
 
+	// Neither count nor timestamp can ever be NaN due to their types (not float64.)
 	c := float64(count)
 	s := Stat{
 		Stat:  statName,
@@ -98,6 +101,10 @@ func (b Batcher) PostEZValue(statName string, value float64) error {
 }
 
 func (b Batcher) PostEZValueTime(statName string, value float64, timestamp int64) error {
+	if math.IsNaN(value) {
+		return ErrNaN
+	}
+
 	s := Stat{
 		Stat:  statName,
 		Value: &value,
