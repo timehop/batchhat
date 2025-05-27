@@ -49,7 +49,8 @@ var _ = Describe("Batcher", func() {
 			}
 		})
 
-		It("should send the stat", func(done Done) {
+		It("should send the stat", func() {
+			done := make(chan struct{})
 			ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				bts, err := ioutil.ReadAll(r.Body)
 				defer r.Body.Close()
@@ -72,6 +73,7 @@ var _ = Describe("Batcher", func() {
 			stathat.APIURL = ts.URL
 
 			action(b)
+			Eventually(done).Should(BeClosed())
 		})
 	}
 
@@ -90,7 +92,7 @@ var _ = Describe("Batcher", func() {
 				Expect(stat.Count).ToNot(BeNil())
 				Expect(*stat.Count).To(BeNumerically("==", 2353))
 				Expect(stat.Value).To(BeNil())
-				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
+				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix(), 2))
 			}
 
 			AssertEZCall(action, verify)
@@ -111,21 +113,21 @@ var _ = Describe("Batcher", func() {
 				Expect(stat.Count).ToNot(BeNil())
 				Expect(*stat.Count).To(BeNumerically("==", 2353))
 				Expect(stat.Value).To(BeNil())
-				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
+				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix(), 2))
 
 				stat = stats[1]
 				Expect(stat.Stat).To(Equal("Bacon"))
 				Expect(stat.Count).ToNot(BeNil())
 				Expect(*stat.Count).To(BeNumerically("==", 1))
 				Expect(stat.Value).To(BeNil())
-				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
+				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix(), 2))
 
 				stat = stats[2]
 				Expect(stat.Stat).To(Equal("pancakes"))
 				Expect(stat.Count).ToNot(BeNil())
 				Expect(*stat.Count).To(BeNumerically("==", 200))
 				Expect(stat.Value).To(BeNil())
-				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
+				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix(), 2))
 			}
 
 			AssertEZCall(action, verify)
@@ -221,7 +223,7 @@ var _ = Describe("Batcher", func() {
 				Expect(stat.Value).ToNot(BeNil())
 				Expect(*stat.Value).To(BeNumerically("==", 2353))
 				Expect(stat.Count).To(BeNil())
-				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
+				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix(), 2))
 			}
 
 			AssertEZCall(action, verify)
@@ -242,21 +244,21 @@ var _ = Describe("Batcher", func() {
 				Expect(stat.Value).ToNot(BeNil())
 				Expect(*stat.Value).To(BeNumerically("==", 2353))
 				Expect(stat.Count).To(BeNil())
-				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
+				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix(), 2))
 
 				stat = stats[1]
 				Expect(stat.Stat).To(Equal("Bacon"))
 				Expect(stat.Value).ToNot(BeNil())
 				Expect(*stat.Value).To(BeNumerically("==", 1))
 				Expect(stat.Count).To(BeNil())
-				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
+				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix(), 2))
 
 				stat = stats[2]
 				Expect(stat.Stat).To(Equal("pancakes"))
 				Expect(stat.Value).ToNot(BeNil())
 				Expect(*stat.Value).To(BeNumerically("==", 200))
 				Expect(stat.Count).To(BeNil())
-				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix()))
+				Expect(stat.Time).To(BeNumerically("~", time.Now().Unix(), 2))
 			}
 
 			AssertEZCall(action, verify)
@@ -325,8 +327,9 @@ var _ = Describe("Batcher", func() {
 			}
 		})
 
-		It("should send the stat", func(done Done) {
+		It("should send the stat", func() {
 			iter := 0
+			done := make(chan struct{})
 
 			ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				bts, err := ioutil.ReadAll(r.Body)
@@ -362,6 +365,8 @@ var _ = Describe("Batcher", func() {
 				b.PostEZCount("the", i*5)
 				b.PostEZValue("Human", float64(i*7))
 			}
+
+			Eventually(done).Should(BeClosed())
 		})
 	})
 })

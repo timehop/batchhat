@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	APIURL = "http://api.stathat.com/ez"
+	APIURL = "https://api.stathat.com/ez"
 
 	ErrCouldNotQueueStat    = errors.New("could not queue up stat")
 	ErrInvalidFlushInterval = errors.New("flush interval invalid")

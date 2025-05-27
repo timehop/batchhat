@@ -15,8 +15,11 @@ Testing
 $ go get github.com/onsi/ginkgo/ginkgo
 $ go get github.com/onsi/gomega
 
+# Navigate to the stathat directory
+cd stathat 
+
 # Run the tests!
-$ ginkgo -r --randomizeAllSpecs --skipMeasurements --cover --trace --race
+$ go test -v -race -ginkgo.randomizeAllSpecs -ginkgo.trace -ginkgo.failFast
 
 # While writing new tests, it's helpful to have ginkgo watch for changes
 $ ginkgo watch -r --randomizeAllSpecs --trace --race
