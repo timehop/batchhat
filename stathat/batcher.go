@@ -47,6 +47,16 @@ func WithRetries(n int) Option {
 	}
 }
 
+// WithEZKey sets the StatHat EZ key for authentication.
+// This allows overriding the key passed to NewBatcher (e.g., from SecretsManager).
+func WithEZKey(key string) Option {
+	return func(b *Batcher) {
+		if key != "" {
+			b.EZKey = key
+		}
+	}
+}
+
 type Stat struct {
 	Stat  string   `json:"stat"`
 	Count *float64 `json:"count,omitempty"`
