@@ -1,7 +1,9 @@
 package stathat_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -13,6 +15,13 @@ import (
 
 	"github.com/timehop/batchhat/stathat"
 )
+
+// RoundTripFunc allows creating http.RoundTripper from a function
+type RoundTripFunc func(req *http.Request) (*http.Response, error)
+
+func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 var _ = Describe("Batcher", func() {
 	Describe(".NewBatcher", func() {
@@ -29,6 +38,34 @@ var _ = Describe("Batcher", func() {
 			It("should return an error", func() {
 				Expect(err).NotTo(BeNil())
 				Expect(err).To(Equal(stathat.ErrInvalidFlushInterval))
+			})
+		})
+
+		Describe("with custom HTTP client", func() {
+			It("should use the provided client", func() {
+				customClientUsed := false
+				customClient := &http.Client{
+					Transport: RoundTripFunc(func(req *http.Request) (*http.Response, error) {
+						customClientUsed = true
+						return &http.Response{
+							StatusCode: 200,
+							Body:       io.NopCloser(bytes.NewBufferString(`{"status":200,"msg":"ok"}`)),
+						}, nil
+					}),
+				}
+
+				b, err := stathat.NewBatcher("ezkey", 10*time.Millisecond, stathat.WithHTTPClient(customClient))
+				Expect(err).To(BeNil())
+
+				go b.Start()
+				defer b.Stop()
+
+				stathat.APIURL = "http://test.local/ez"
+				b.PostEZCount("test", 1)
+
+				Eventually(func() bool {
+					return customClientUsed
+				}).Should(BeTrue())
 			})
 		})
 	})

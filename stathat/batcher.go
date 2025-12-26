@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"math"
 	"net/http"
 	"time"
@@ -24,6 +24,29 @@ var (
 	ErrNaN                  = errors.New("value is not a number (NaN)")
 )
 
+// Option configures a Batcher.
+type Option func(*Batcher)
+
+// WithHTTPClient sets a custom HTTP client for the Batcher.
+// If not provided, http.DefaultClient is used.
+func WithHTTPClient(c *http.Client) Option {
+	return func(b *Batcher) {
+		if c != nil {
+			b.client = c
+		}
+	}
+}
+
+// WithRetries sets the number of retry attempts for failed requests.
+// If not provided, defaults to 2.
+func WithRetries(n int) Option {
+	return func(b *Batcher) {
+		if n > 0 {
+			b.retries = n
+		}
+	}
+}
+
 type Stat struct {
 	Stat  string   `json:"stat"`
 	Count *float64 `json:"count,omitempty"`
@@ -38,20 +61,35 @@ type BulkStat struct {
 
 type Batcher struct {
 	Stats         chan Stat
-	stop          chan interface{}
+	stop          chan any
 	EZKey         string
 	flushInterval time.Duration
+	client        *http.Client
+	retries       int
 }
 
-func NewBatcher(ezKey string, d time.Duration) (Batcher, error) {
+func NewBatcher(ezKey string, d time.Duration, opts ...Option) (Batcher, error) {
 	if d < 0 {
 		return Batcher{}, ErrInvalidFlushInterval
 	}
 
 	c := make(chan Stat, 10000)
-	st := make(chan interface{})
+	st := make(chan any)
 
-	return Batcher{EZKey: ezKey, flushInterval: d, stop: st, Stats: c}, nil
+	b := Batcher{
+		EZKey:         ezKey,
+		flushInterval: d,
+		stop:          st,
+		Stats:         c,
+		client:        http.DefaultClient,
+		retries:       2,
+	}
+
+	for _, opt := range opts {
+		opt(&b)
+	}
+
+	return b, nil
 }
 
 // PostEZCount enqueues a given integer value to be added to a StatHat counter stat. 0 values will
@@ -71,7 +109,7 @@ func (b Batcher) PostEZCount(statName string, count int) error {
 	return b.PostEZCountTime(statName, count, time.Now().Unix())
 }
 
-// PostEZCount enqueues a given integer value to be added to a StatHat counter stat with a specific
+// PostEZCountTime enqueues a given integer value to be added to a StatHat counter stat with a specific
 // timestamp. 0 values will be dropped.
 func (b Batcher) PostEZCountTime(statName string, count int, timestamp int64) error {
 	// If a caller is sending a 0, they probably intend for it to be a no-op — to essentially
@@ -167,15 +205,15 @@ func (b Batcher) flush(stats []*Stat) {
 
 		req.Header.Add("Content-Type", "application/json")
 
-		send(req, 2)
+		b.send(req)
 	}
 }
 
 func chunks(stats []*Stat) chan []*Stat {
 	c := make(chan []*Stat)
 	go func() {
-		chunks := len(stats) / 1000
-		for i := 0; i <= chunks; i++ {
+		cnks := len(stats) / 1000
+		for i := 0; i <= cnks; i++ {
 
 			start := i * 1000
 			end := start + 1000
@@ -193,18 +231,18 @@ func chunks(stats []*Stat) chan []*Stat {
 	return c
 }
 
-func send(req *http.Request, retries int) {
-	for i := 0; i < retries; i++ {
-		resp, err := http.DefaultClient.Do(req)
+func (b Batcher) send(req *http.Request) {
+	for i := 0; i < b.retries; i++ {
+		resp, err := b.client.Do(req)
 		if err != nil {
 			log.Warn(logID, "error posting data to stathat", "error", err.Error())
 			continue
 		}
 
-		b, _ := ioutil.ReadAll(resp.Body)
-		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
 
-		log.Debug(logID, "Flushed", "status", resp.Status, "resp", string(b))
-		break
+		log.Debug(logID, "Flushed", "status", resp.Status, "resp", string(body))
+		return
 	}
 }
