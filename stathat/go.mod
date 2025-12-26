@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.27.0
-	github.com/timehop/golog v0.0.0-20171219220921-cbf2afa06faa
+	github.com/timehop/golog v1.0.0
 )
 
 require (
