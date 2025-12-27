@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -90,7 +89,7 @@ var _ = Describe("Batcher", func() {
 		It("should send the stat", func() {
 			done := make(chan struct{})
 			ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				bts, err := ioutil.ReadAll(r.Body)
+				bts, err := io.ReadAll(r.Body)
 				defer r.Body.Close()
 
 				Expect(err).To(BeNil())
@@ -370,7 +369,7 @@ var _ = Describe("Batcher", func() {
 			done := make(chan struct{})
 
 			ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				bts, err := ioutil.ReadAll(r.Body)
+				bts, err := io.ReadAll(r.Body)
 				defer r.Body.Close()
 
 				Expect(err).To(BeNil())
