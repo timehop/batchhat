@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -43,10 +44,10 @@ var _ = Describe("Batcher", func() {
 
 		Describe("with custom HTTP client", func() {
 			It("should use the provided client", func() {
-				customClientUsed := false
+				var customClientUsed atomic.Bool
 				customClient := &http.Client{
 					Transport: RoundTripFunc(func(req *http.Request) (*http.Response, error) {
-						customClientUsed = true
+						customClientUsed.Store(true)
 						return &http.Response{
 							StatusCode: 200,
 							Body:       io.NopCloser(bytes.NewBufferString(`{"status":200,"msg":"ok"}`)),
@@ -64,7 +65,7 @@ var _ = Describe("Batcher", func() {
 				b.PostEZCount("test", 1)
 
 				Eventually(func() bool {
-					return customClientUsed
+					return customClientUsed.Load()
 				}).Should(BeTrue())
 			})
 		})
