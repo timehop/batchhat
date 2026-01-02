@@ -37,11 +37,12 @@ func WithHTTPClient(c *http.Client) Option {
 	}
 }
 
-// WithRetries sets the number of retry attempts for failed requests.
-// If not provided, defaults to 2.
+// WithRetries sets the number of retries for failed requests.
+// A value of 0 means no retries (single attempt).
+// If not provided, defaults to 1 retry (2 total attempts).
 func WithRetries(n int) Option {
 	return func(b *Batcher) {
-		if n > 0 {
+		if n >= 0 {
 			b.retries = n
 		}
 	}
@@ -92,7 +93,7 @@ func NewBatcher(ezKey string, d time.Duration, opts ...Option) (Batcher, error) 
 		stop:          st,
 		Stats:         c,
 		client:        http.DefaultClient,
-		retries:       2,
+		retries:       1,
 	}
 
 	for _, opt := range opts {
@@ -242,17 +243,20 @@ func chunks(stats []*Stat) chan []*Stat {
 }
 
 func (b Batcher) send(req *http.Request) {
-	for i := 0; i < b.retries; i++ {
+	var attempt int
+	for {
 		resp, err := b.client.Do(req)
-		if err != nil {
-			log.Warn(logID, "error posting data to stathat", "error", err.Error())
-			continue
+		if err == nil {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			log.Debug(logID, "Flushed", "status", resp.Status, "resp", string(body))
+			return
 		}
 
-		body, _ := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-
-		log.Debug(logID, "Flushed", "status", resp.Status, "resp", string(body))
-		return
+		log.Warn(logID, "error posting data to stathat", "error", err.Error())
+		attempt++
+		if attempt > b.retries {
+			return
+		}
 	}
 }
