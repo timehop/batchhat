@@ -252,9 +252,10 @@ func (b Batcher) send(payload []byte) {
 			return
 		}
 
-		log.Warn(logID, "error posting data to stathat", "error", err.Error())
 		attempt++
+		log.Warn(logID, "error posting data to stathat", "attempt", attempt, "error", err.Error())
 		if attempt > b.retries {
+			log.Warn(logID, "exhausted retries, giving up", "attempts", attempt)
 			return
 		}
 	}
