@@ -3,10 +3,12 @@ package stathat_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -404,6 +406,58 @@ var _ = Describe("Batcher", func() {
 			}
 
 			Eventually(done).Should(BeClosed())
+		})
+	})
+
+	Describe("retry behavior", func() {
+		It("should send complete body on retry after failure", func() {
+			var attemptCount atomic.Int32
+			var bodiesReceived []string
+			var mu sync.Mutex
+
+			customClient := &http.Client{
+				Transport: RoundTripFunc(func(req *http.Request) (*http.Response, error) {
+					attempt := attemptCount.Add(1)
+
+					// Read and record the body
+					body, _ := io.ReadAll(req.Body)
+					mu.Lock()
+					bodiesReceived = append(bodiesReceived, string(body))
+					mu.Unlock()
+
+					if attempt == 1 {
+						// First attempt: simulate failure after body is read
+						return nil, errors.New("simulated network error")
+					}
+
+					// Second attempt: succeed
+					return &http.Response{
+						StatusCode: 200,
+						Body:       io.NopCloser(bytes.NewBufferString(`{"status":200,"msg":"ok"}`)),
+					}, nil
+				}),
+			}
+
+			b, err := stathat.NewBatcher("ezkey", 10*time.Millisecond, stathat.WithHTTPClient(customClient))
+			Expect(err).To(BeNil())
+
+			go b.Start()
+			defer b.Stop()
+
+			stathat.APIURL = "http://test.local/ez"
+			b.PostEZCount("test", 42)
+
+			Eventually(func() int32 {
+				return attemptCount.Load()
+			}).Should(BeNumerically(">=", 2))
+
+			// Both attempts should have received complete, non-empty bodies
+			mu.Lock()
+			defer mu.Unlock()
+			Expect(len(bodiesReceived)).To(BeNumerically(">=", 2))
+			Expect(bodiesReceived[0]).ToNot(BeEmpty())
+			Expect(bodiesReceived[1]).ToNot(BeEmpty())
+			Expect(bodiesReceived[0]).To(Equal(bodiesReceived[1]))
 		})
 	})
 })

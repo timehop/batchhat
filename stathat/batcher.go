@@ -208,15 +208,7 @@ func (b Batcher) flush(stats []*Stat) {
 			return
 		}
 
-		req, err := http.NewRequest("POST", APIURL, bytes.NewReader(j))
-		if err != nil {
-			log.Warn(logID, "couldn't make request", "error", err.Error())
-			return
-		}
-
-		req.Header.Add("Content-Type", "application/json")
-
-		b.send(req)
+		b.send(j)
 	}
 }
 
@@ -242,9 +234,16 @@ func chunks(stats []*Stat) chan []*Stat {
 	return c
 }
 
-func (b Batcher) send(req *http.Request) {
+func (b Batcher) send(payload []byte) {
 	var attempt int
 	for {
+		req, err := http.NewRequest("POST", APIURL, bytes.NewReader(payload))
+		if err != nil {
+			log.Warn(logID, "couldn't make request", "error", err.Error())
+			return
+		}
+		req.Header.Add("Content-Type", "application/json")
+
 		resp, err := b.client.Do(req)
 		if err == nil {
 			body, _ := io.ReadAll(resp.Body)
