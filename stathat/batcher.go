@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"math"
 	"net/http"
 	"time"
@@ -24,6 +24,40 @@ var (
 	ErrNaN                  = errors.New("value is not a number (NaN)")
 )
 
+// Option configures a Batcher.
+type Option func(*Batcher)
+
+// WithHTTPClient sets a custom HTTP client for the Batcher.
+// If not provided, http.DefaultClient is used.
+func WithHTTPClient(c *http.Client) Option {
+	return func(b *Batcher) {
+		if c != nil {
+			b.client = c
+		}
+	}
+}
+
+// WithRetries sets the number of retries for failed requests.
+// A value of 0 means no retries (single attempt).
+// If not provided, defaults to 1 retry (2 total attempts).
+func WithRetries(n int) Option {
+	return func(b *Batcher) {
+		if n >= 0 {
+			b.retries = n
+		}
+	}
+}
+
+// WithEZKey sets the StatHat EZ key for authentication.
+// This allows overriding the key passed to NewBatcher (e.g., from SecretsManager).
+func WithEZKey(key string) Option {
+	return func(b *Batcher) {
+		if key != "" {
+			b.EZKey = key
+		}
+	}
+}
+
 type Stat struct {
 	Stat  string   `json:"stat"`
 	Count *float64 `json:"count,omitempty"`
@@ -38,20 +72,35 @@ type BulkStat struct {
 
 type Batcher struct {
 	Stats         chan Stat
-	stop          chan interface{}
+	stop          chan any
 	EZKey         string
 	flushInterval time.Duration
+	client        *http.Client
+	retries       int
 }
 
-func NewBatcher(ezKey string, d time.Duration) (Batcher, error) {
+func NewBatcher(ezKey string, d time.Duration, opts ...Option) (Batcher, error) {
 	if d < 0 {
 		return Batcher{}, ErrInvalidFlushInterval
 	}
 
 	c := make(chan Stat, 10000)
-	st := make(chan interface{})
+	st := make(chan any)
 
-	return Batcher{EZKey: ezKey, flushInterval: d, stop: st, Stats: c}, nil
+	b := Batcher{
+		EZKey:         ezKey,
+		flushInterval: d,
+		stop:          st,
+		Stats:         c,
+		client:        http.DefaultClient,
+		retries:       1,
+	}
+
+	for _, opt := range opts {
+		opt(&b)
+	}
+
+	return b, nil
 }
 
 // PostEZCount enqueues a given integer value to be added to a StatHat counter stat. 0 values will
@@ -71,7 +120,7 @@ func (b Batcher) PostEZCount(statName string, count int) error {
 	return b.PostEZCountTime(statName, count, time.Now().Unix())
 }
 
-// PostEZCount enqueues a given integer value to be added to a StatHat counter stat with a specific
+// PostEZCountTime enqueues a given integer value to be added to a StatHat counter stat with a specific
 // timestamp. 0 values will be dropped.
 func (b Batcher) PostEZCountTime(statName string, count int, timestamp int64) error {
 	// If a caller is sending a 0, they probably intend for it to be a no-op — to essentially
@@ -159,23 +208,15 @@ func (b Batcher) flush(stats []*Stat) {
 			return
 		}
 
-		req, err := http.NewRequest("POST", APIURL, bytes.NewReader(j))
-		if err != nil {
-			log.Warn(logID, "couldn't make request", "error", err.Error())
-			return
-		}
-
-		req.Header.Add("Content-Type", "application/json")
-
-		send(req, 2)
+		b.send(j)
 	}
 }
 
 func chunks(stats []*Stat) chan []*Stat {
 	c := make(chan []*Stat)
 	go func() {
-		chunks := len(stats) / 1000
-		for i := 0; i <= chunks; i++ {
+		cnks := len(stats) / 1000
+		for i := 0; i <= cnks; i++ {
 
 			start := i * 1000
 			end := start + 1000
@@ -193,18 +234,29 @@ func chunks(stats []*Stat) chan []*Stat {
 	return c
 }
 
-func send(req *http.Request, retries int) {
-	for i := 0; i < retries; i++ {
-		resp, err := http.DefaultClient.Do(req)
+func (b Batcher) send(payload []byte) {
+	var attempt int
+	for {
+		req, err := http.NewRequest("POST", APIURL, bytes.NewReader(payload))
 		if err != nil {
-			log.Warn(logID, "error posting data to stathat", "error", err.Error())
-			continue
+			log.Warn(logID, "couldn't make request", "error", err.Error())
+			return
+		}
+		req.Header.Add("Content-Type", "application/json")
+
+		resp, err := b.client.Do(req)
+		if err == nil {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			log.Debug(logID, "Flushed", "status", resp.Status, "resp", string(body))
+			return
 		}
 
-		b, _ := ioutil.ReadAll(resp.Body)
-		defer resp.Body.Close()
-
-		log.Debug(logID, "Flushed", "status", resp.Status, "resp", string(b))
-		break
+		attempt++
+		log.Warn(logID, "error posting data to stathat", "attempt", attempt, "error", err.Error())
+		if attempt > b.retries {
+			log.Warn(logID, "exhausted retries, giving up", "attempts", attempt)
+			return
+		}
 	}
 }
